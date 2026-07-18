@@ -15,6 +15,18 @@ const generateMockRecipes = (count: number): Recipe[] => {
     difficulty: difficulties[Math.floor(Math.random() * difficulties.length)],
     cuisine: cuisines[Math.floor(Math.random() * cuisines.length)],
     dietType: [dietTypes[Math.floor(Math.random() * dietTypes.length)]],
+    ingredients: [
+      "2 cups of fresh ingredients",
+      "1 tbsp olive oil",
+      "1/2 tsp salt and pepper to taste",
+      "A pinch of culinary magic",
+    ],
+    instructions: [
+      "Prepare all your ingredients by washing and chopping them as needed.",
+      "Heat the olive oil in a large pan over medium heat.",
+      "Add the main ingredients and sauté until perfectly cooked.",
+      "Season with salt, pepper, and serve hot.",
+    ],
     createdAt: new Date(Date.now() - Math.floor(Math.random() * 10000000000)).toISOString(),
   }));
 };
@@ -83,4 +95,28 @@ export const fetchRecipes = async (params: FetchRecipesParams): Promise<Paginate
     limit,
     totalPages,
   };
+};
+
+export const getRecipeById = async (id: string): Promise<Recipe | null> => {
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  const recipe = mockRecipes.find((r) => r.id === id);
+  return recipe || null;
+};
+
+export const getRelatedRecipes = async (id: string): Promise<Recipe[]> => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+  const recipe = mockRecipes.find((r) => r.id === id);
+  if (!recipe) return [];
+  // Return 4 random recipes from the same cuisine, or just any 4
+  const related = mockRecipes.filter((r) => r.id !== id && r.cuisine === recipe.cuisine);
+  if (related.length < 4) {
+    related.push(...mockRecipes.filter((r) => r.id !== id && !related.includes(r)).slice(0, 4 - related.length));
+  }
+  return related.slice(0, 4);
+};
+
+export const logInteraction = async (recipeId: string, action: 'view' | 'save' | 'share'): Promise<void> => {
+  // Simulate network delay and silent exit if not logged in (mock)
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  console.log(`[API Mock] Logged interaction '${action}' for recipe ${recipeId}`);
 };
