@@ -1,25 +1,21 @@
 import Link from "next/link";
 
-// ── Footer link groups ────────────────────────────────────────────────────────
+// ── Footer link groups (only real, existing routes) ───────────────────────────
 const footerLinks = {
   platform: [
     { label: "Home", href: "/" },
     { label: "Explore Recipes", href: "/recipes" },
-    { label: "AI Generator", href: "/generate" },
-    { label: "Saved Recipes", href: "/saved" },
-    { label: "Meal Planner", href: "/planner" },
+    { label: "Add Recipe", href: "/recipes/add" },
+    { label: "Manage Recipes", href: "/recipes/manage" },
+    { label: "Dashboard", href: "/dashboard" },
   ],
   company: [
     { label: "About Us", href: "/about" },
-    { label: "Blog", href: "/blog" },
-    { label: "Careers", href: "/careers" },
-    { label: "Press", href: "/press" },
-  ],
-  support: [
-    { label: "Help Center", href: "/help" },
     { label: "Contact Us", href: "/contact" },
-    { label: "Privacy Policy", href: "/privacy" },
-    { label: "Terms of Service", href: "/terms" },
+  ],
+  account: [
+    { label: "Log In", href: "/login" },
+    { label: "Get Started", href: "/register" },
   ],
 };
 
@@ -123,7 +119,7 @@ export default function Footer() {
           {[
             { title: "Platform", links: footerLinks.platform },
             { title: "Company", links: footerLinks.company },
-            { title: "Support", links: footerLinks.support },
+            { title: "Account", links: footerLinks.account },
           ].map((group) => (
             <div key={group.title}>
               <h3 className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">
@@ -150,9 +146,9 @@ export default function Footer() {
         <div className="py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-neutral-500">
           <p>© {year} SmartRecipe. All rights reserved.</p>
           <div className="flex items-center gap-5">
-            <Link href="/privacy" className="hover:text-neutral-300 transition-colors">Privacy</Link>
-            <Link href="/terms" className="hover:text-neutral-300 transition-colors">Terms</Link>
-            <Link href="/cookies" className="hover:text-neutral-300 transition-colors">Cookies</Link>
+            <Link href="/about" className="hover:text-neutral-300 transition-colors">About</Link>
+            <Link href="/contact" className="hover:text-neutral-300 transition-colors">Contact</Link>
+            <Link href="/recipes" className="hover:text-neutral-300 transition-colors">Recipes</Link>
           </div>
         </div>
       </div>

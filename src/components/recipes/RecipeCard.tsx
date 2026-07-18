@@ -37,7 +37,7 @@ export default function RecipeCard({ recipe }: { recipe: Recipe }) {
             <span className="text-neutral-500">⏱️</span> {recipe.cookTime} min
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-yellow-500">★</span> {recipe.rating}
+            <span className="text-primary-400">★</span> {recipe.rating}
           </div>
         </div>
 

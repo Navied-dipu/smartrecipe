@@ -120,3 +120,99 @@ export const logInteraction = async (recipeId: string, action: 'view' | 'save' |
   await new Promise((resolve) => setTimeout(resolve, 300));
   console.log(`[API Mock] Logged interaction '${action}' for recipe ${recipeId}`);
 };
+
+// ── AI Recommendations ──────────────────────────────────────────────────────
+export interface RecommendedRecipe extends Recipe {
+  /** One-line AI explanation for why this recipe was recommended. */
+  reason: string;
+}
+
+export interface RecommendationParams {
+  dietType?: string;
+  maxCookTime?: number;
+}
+
+export interface RecommendationResponse {
+  recipes: RecommendedRecipe[];
+  /** True when the user has no interaction history yet (cold start). */
+  hasInteractions: boolean;
+}
+
+const reasonTemplates = [
+  (r: Recipe) => `Because you've saved several ${r.cuisine} dishes recently`,
+  (r: Recipe) => `Matches your love for quick ${r.cookTime}-minute meals`,
+  () => `Similar to recipes you rated highly`,
+  (r: Recipe) => `A ${r.difficulty.toLowerCase()} pick that fits your cooking style`,
+  (r: Recipe) => `Popular with cooks who share your taste in ${r.cuisine} food`,
+  (r: Recipe) => `Fits your ${r.dietType[0]} preferences from past saves`,
+];
+
+/**
+ * GET /api/ai/recommendations
+ * Falls back to locally generated mock recommendations when the endpoint
+ * is unavailable (e.g. during frontend-only development).
+ */
+export const getRecommendations = async (
+  params: RecommendationParams = {}
+): Promise<RecommendationResponse> => {
+  const query = new URLSearchParams();
+  if (params.dietType && params.dietType !== "All") query.set("dietType", params.dietType);
+  if (params.maxCookTime) query.set("maxCookTime", String(params.maxCookTime));
+  const qs = query.toString();
+
+  try {
+    const res = await fetch(`/api/ai/recommendations${qs ? `?${qs}` : ""}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+    return (await res.json()) as RecommendationResponse;
+  } catch {
+    // ── Mock fallback ──────────────────────────────────────────────────────
+    await new Promise((resolve) => setTimeout(resolve, 900));
+
+    let pool = [...mockRecipes];
+    if (params.dietType && params.dietType !== "All") {
+      pool = pool.filter((r) =>
+        r.dietType.some((d) => d.toLowerCase() === params.dietType?.toLowerCase())
+      );
+    }
+    if (params.maxCookTime) {
+      pool = pool.filter((r) => r.cookTime <= params.maxCookTime!);
+    }
+
+    const recipes: RecommendedRecipe[] = pool
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, 8)
+      .map((r, i) => ({
+        ...r,
+        reason: reasonTemplates[i % reasonTemplates.length](r),
+      }));
+
+    return { recipes, hasInteractions: true };
+  }
+};
+
+/**
+ * POST /api/interactions
+ * Records a user interaction (e.g. saving a recipe). Fails silently on the
+ * mock fallback so navigation is never blocked.
+ */
+export const postInteraction = async (
+  recipeId: string,
+  action: "view" | "save" | "share"
+): Promise<void> => {
+  try {
+    const res = await fetch("/api/interactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ recipeId, action }),
+    });
+    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  } catch {
+    // Mock fallback — do not block navigation on failure
+    console.log(`[API Mock] POST /api/interactions { recipeId: ${recipeId}, action: ${action} }`);
+  }
+};

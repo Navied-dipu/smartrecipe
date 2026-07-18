@@ -26,7 +26,7 @@ const recipeSchema = z.object({
   steps: z.array(z.object({ value: z.string().min(1, "Step cannot be empty") })).min(1, "Add at least one step"),
   cuisine: z.string().min(1, "Please select a cuisine"),
   dietType: z.array(z.string()).optional(),
-  cookTimeMinutes: z.number({ invalid_type_error: "Cook time must be a number" }).min(1, "Cook time must be at least 1 minute"),
+  cookTimeMinutes: z.number({ message: "Cook time must be a number" }).min(1, "Cook time must be at least 1 minute"),
   difficulty: z.enum(["Easy", "Medium", "Hard"]),
   imageUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
 });
@@ -248,7 +248,7 @@ function AddRecipeForm() {
               )}
             </button>
             {hasGenerated && (
-              <p className="text-green-400 text-sm flex items-center gap-1.5">
+              <p className="text-accent-400 text-sm flex items-center gap-1.5">
                 <span>✓</span> Fields pre-filled — edit as needed
               </p>
             )}
@@ -380,7 +380,7 @@ function AddRecipeForm() {
               <div className="flex rounded-xl overflow-hidden border border-white/10">
                 {(["Easy", "Medium", "Hard"] as const).map((d) => {
                   const selected = watch("difficulty") === d;
-                  const color = d === "Easy" ? "from-green-600 to-green-500" : d === "Medium" ? "from-yellow-600 to-yellow-500" : "from-red-600 to-red-500";
+                  const color = d === "Easy" ? "from-accent-600 to-accent-500" : d === "Medium" ? "from-primary-600 to-primary-500" : "from-secondary-600 to-secondary-500";
                   return (
                     <button
                       key={d}

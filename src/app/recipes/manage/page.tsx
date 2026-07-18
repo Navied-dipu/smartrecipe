@@ -45,9 +45,9 @@ function StarRating({ rating }: { rating: number }) {
 
 function DifficultyBadge({ difficulty }: { difficulty: string }) {
   const colors: Record<string, string> = {
-    Easy: "bg-green-500/15 text-green-400 border-green-500/20",
-    Medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20",
-    Hard: "bg-red-500/15 text-red-400 border-red-500/20",
+    Easy: "bg-accent-500/15 text-accent-400 border-accent-500/20",
+    Medium: "bg-primary-500/15 text-primary-400 border-primary-500/20",
+    Hard: "bg-secondary-500/15 text-secondary-400 border-secondary-500/20",
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${colors[difficulty] || "bg-white/10 text-white"}`}>
