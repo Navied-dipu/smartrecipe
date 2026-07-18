@@ -75,7 +75,7 @@ function RecipesContent() {
           Explore <span className="gradient-text">Recipes</span>
         </h1>
         <p className="text-neutral-400 text-lg max-w-2xl">
-          Discover your next favorite meal. Use the filters below to narrow down by cuisine, diet, or just search for what you're craving.
+          Discover your next favorite meal. Use the filters below to narrow down by cuisine, diet, or just search for what you&apos;re craving.
         </p>
       </div>
 
@@ -146,7 +146,7 @@ function RecipesContent() {
         <div className="py-20 text-center">
           <span className="text-6xl mb-4 block opacity-50">🍽️</span>
           <h3 className="text-xl font-bold text-white mb-2">No recipes found</h3>
-          <p className="text-neutral-400">Try adjusting your search or filters to find what you're looking for.</p>
+          <p className="text-neutral-400">Try adjusting your search or filters to find what you&apos;re looking for.</p>
           <button 
             onClick={() => { setSearchTerm(""); setCuisine("All"); setDietType("All"); }}
             className="mt-6 btn-outline px-6 py-2 text-sm"

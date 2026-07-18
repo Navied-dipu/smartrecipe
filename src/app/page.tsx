@@ -29,7 +29,7 @@ export default function Home() {
               </h1>
               
               <p className="text-lg sm:text-xl text-neutral-400 leading-relaxed max-w-xl text-balance">
-                Your personal AI sous-chef. Tell us what's in your pantry, your dietary goals, and your cravings — we'll generate the perfect recipe in seconds.
+                Your personal AI sous-chef. Tell us what&apos;s in your pantry, your dietary goals, and your cravings — we&apos;ll generate the perfect recipe in seconds.
               </p>
               
               <div className="flex flex-wrap items-center gap-4 pt-4">
@@ -68,7 +68,7 @@ export default function Home() {
               Everything you need to master your kitchen
             </h2>
             <p className="text-neutral-400 text-lg">
-              SmartRecipe isn't just a cookbook. It's a living, breathing culinary assistant designed to adapt to your life.
+              SmartRecipe isn&apos;t just a cookbook. It&apos;s a living, breathing culinary assistant designed to adapt to your life.
             </p>
           </div>
 
@@ -216,7 +216,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="font-display text-4xl font-bold text-white mb-4">Loved by home chefs everywhere</h2>
-            <p className="text-neutral-400">Don't just take our word for it.</p>
+            <p className="text-neutral-400">Don&apos;t just take our word for it.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
@@ -241,8 +241,8 @@ export default function Home() {
               },
             ].map((t, i) => (
               <div key={i} className="glass-card p-8 rounded-3xl relative">
-                <div className="text-primary-500/20 text-6xl font-display absolute top-4 left-6 leading-none">"</div>
-                <p className="text-neutral-300 relative z-10 mb-8 pt-4 italic">"{t.quote}"</p>
+                <div className="text-primary-500/20 text-6xl font-display absolute top-4 left-6 leading-none">&quot;</div>
+                <p className="text-neutral-300 relative z-10 mb-8 pt-4 italic">&quot;{t.quote}&quot;</p>
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-400 to-secondary-500 flex items-center justify-center font-bold text-white shadow-sm">
                     {t.avatar}

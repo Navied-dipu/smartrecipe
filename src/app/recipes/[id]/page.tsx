@@ -60,7 +60,7 @@ export default function RecipeDetailPage() {
         <span className="text-6xl mb-6 opacity-50 block">🍽️</span>
         <h1 className="text-3xl font-bold text-white mb-4">Recipe Not Found</h1>
         <p className="text-neutral-400 mb-8 max-w-md">
-          We couldn't find the recipe you're looking for. It might have been removed or the URL is incorrect.
+          We couldn&apos;t find the recipe you&apos;re looking for. It might have been removed or the URL is incorrect.
         </p>
         <button onClick={() => window.history.back()} className="btn-primary px-8 py-3">
           Go Back
