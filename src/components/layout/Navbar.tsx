@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession, signOut } from "@/lib/auth-client";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface NavLink {
@@ -21,15 +23,17 @@ const authLinks: NavLink[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Add Recipe", href: "/recipes/new" },
   { label: "Manage Recipes", href: "/recipes/manage" },
-  { label: "Profile", href: "/profile" },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Navbar() {
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  // TODO: replace with real auth session check (e.g. Better Auth useSession)
-  const isLoggedIn = false;
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  
+  const { data: session, isPending } = useSession();
+  const isLoggedIn = !!session?.user;
 
   const navLinks = isLoggedIn ? [...publicLinks, ...authLinks] : publicLinks;
 
@@ -41,10 +45,22 @@ export default function Navbar() {
 
   // Close mobile menu on resize
   useEffect(() => {
-    const onResize = () => { if (window.innerWidth >= 768) setMobileOpen(false); };
+    const onResize = () => { 
+      if (window.innerWidth >= 768) {
+        setMobileOpen(false);
+        setDropdownOpen(false);
+      }
+    };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    setDropdownOpen(false);
+    setMobileOpen(false);
+    router.push("/");
+  };
 
   return (
     <header
@@ -84,12 +100,41 @@ export default function Navbar() {
           </ul>
 
           {/* ── Desktop Auth Actions ───────────────────────────────────────── */}
-          <div className="hidden md:flex items-center gap-3">
-            {isLoggedIn ? (
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-secondary-600 flex items-center justify-center text-white text-sm font-semibold cursor-pointer hover:scale-110 transition-transform">
-                  U
-                </div>
+          <div className="hidden md:flex items-center gap-3 relative">
+            {isPending ? (
+              <div className="w-20 h-8 bg-white/5 rounded-full shimmer" />
+            ) : isLoggedIn ? (
+              <div className="relative">
+                <button 
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center gap-3 focus:outline-none"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-secondary-600 flex items-center justify-center text-white text-sm font-semibold cursor-pointer hover:scale-110 transition-transform">
+                    {session.user.name?.[0]?.toUpperCase() || "U"}
+                  </div>
+                </button>
+
+                {dropdownOpen && (
+                  <div className="absolute right-0 mt-3 w-48 bg-[#1c1209] border border-white/[0.08] rounded-2xl shadow-xl py-2 z-50">
+                    <div className="px-4 py-2 border-b border-white/[0.08] mb-2">
+                      <p className="text-sm font-medium text-white truncate">{session.user.name}</p>
+                      <p className="text-xs text-neutral-500 truncate">{session.user.email}</p>
+                    </div>
+                    <Link 
+                      href="/profile" 
+                      className="block px-4 py-2 text-sm text-neutral-300 hover:bg-white/[0.05] hover:text-white transition-colors"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      Profile Settings
+                    </Link>
+                    <button 
+                      onClick={handleSignOut}
+                      className="w-full text-left block px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <>
@@ -129,7 +174,7 @@ export default function Navbar() {
         {/* ── Mobile Menu ─────────────────────────────────────────────────── */}
         <div
           className={`md:hidden transition-all duration-300 overflow-hidden ${
-            mobileOpen ? "max-h-96 opacity-100 pb-4" : "max-h-0 opacity-0"
+            mobileOpen ? "max-h-[500px] opacity-100 pb-4" : "max-h-0 opacity-0"
           }`}
         >
           <div className="border-t border-white/[0.06] pt-3 flex flex-col gap-1">
@@ -143,14 +188,33 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
-            <div className="flex gap-2 mt-3 pt-3 border-t border-white/[0.06]">
-              <Link href="/login" className="btn-outline flex-1 text-center py-2 text-sm">
-                Log In
-              </Link>
-              <Link href="/register" className="btn-primary flex-1 text-center py-2 text-sm">
-                Get Started
-              </Link>
-            </div>
+
+            {isLoggedIn ? (
+              <div className="mt-3 pt-3 border-t border-white/[0.06] flex flex-col gap-1">
+                <Link
+                  href="/profile"
+                  onClick={() => setMobileOpen(false)}
+                  className="px-3 py-2 text-sm font-medium text-neutral-300 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+                >
+                  Profile Settings
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="text-left px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2 mt-3 pt-3 border-t border-white/[0.06]">
+                <Link href="/login" className="btn-outline flex-1 text-center py-2 text-sm">
+                  Log In
+                </Link>
+                <Link href="/register" className="btn-primary flex-1 text-center py-2 text-sm">
+                  Get Started
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </nav>
