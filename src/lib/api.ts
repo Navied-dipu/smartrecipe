@@ -5,7 +5,7 @@ import { Recipe, PaginatedResponse } from "@/types/recipe";
 // browser stays on the same origin (localhost:3000) and the Better Auth
 // session cookie is shared with the protected endpoints. NEXT_PUBLIC_API_URL
 // can still force an absolute backend URL when needed (e.g. server-side).
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const API_URL = typeof window === "undefined" ? (process.env.NEXT_PUBLIC_API_URL || "") : "";
 
 function apiPath(path: string): string {
   return API_URL ? `${API_URL}${path}` : path;
@@ -211,9 +211,9 @@ export const getRecommendations = async (
 
   return {
     ...payload,
-    recipes: (payload.recipes ?? []).map((r: any) => ({
+    recipes: (payload.recipes ?? []).map((r: unknown) => ({
       ...transformRecipe(r),
-      reason: r.reason ?? "",
+      reason: (r as { reason?: string }).reason ?? "",
     })),
   };
 };
