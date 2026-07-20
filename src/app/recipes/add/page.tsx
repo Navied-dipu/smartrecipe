@@ -6,6 +6,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { generateRecipe, createRecipe, GeneratedRecipeDraft } from "@/lib/api";
 
 const CUISINES = [
   "Italian", "Mexican", "Indian", "Japanese", "Thai",
@@ -32,8 +33,6 @@ const recipeSchema = z.object({
 });
 
 type RecipeFormValues = z.infer<typeof recipeSchema>;
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 function AddRecipeForm() {
   const router = useRouter();
@@ -86,7 +85,7 @@ function AddRecipeForm() {
     );
   };
 
-  const generateRecipe = useCallback(async () => {
+  const handleGenerate = useCallback(async (): Promise<GeneratedRecipeDraft | void> => {
     if (!aiPrompt.trim()) {
       setAiError("Please enter a prompt first.");
       return;
@@ -95,39 +94,37 @@ function AddRecipeForm() {
     setAiError(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/ai/generate-recipe`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ prompt: aiPrompt, length: aiLength }),
-      });
-
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      const data = await generateRecipe(aiPrompt, aiLength);
 
       // Pre-fill form fields from AI response
       if (data.title) setValue("title", data.title);
-      if (data.description) setValue("description", data.description);
+      if (data.shortDescription) setValue("description", data.shortDescription);
       if (data.fullDescription) setValue("fullDescription", data.fullDescription);
       if (data.cookTimeMinutes) setValue("cookTimeMinutes", data.cookTimeMinutes);
-      if (data.difficulty && ["Easy", "Medium", "Hard"].includes(data.difficulty)) {
-        setValue("difficulty", data.difficulty);
+      if (data.difficulty) {
+        const cap = data.difficulty.charAt(0).toUpperCase() + data.difficulty.slice(1).toLowerCase();
+        if (["Easy", "Medium", "Hard"].includes(cap)) {
+          setValue("difficulty", cap as "Easy" | "Medium" | "Hard");
+        }
       }
       if (data.cuisine) setValue("cuisine", data.cuisine);
-      if (data.imageUrl) setValue("imageUrl", data.imageUrl);
-      if (data.dietType?.length) setSelectedDiets(data.dietType);
+      // Backend dietType is a single string; convert to array for the multi-select
+      if (data.dietType) {
+        const diets = Array.isArray(data.dietType)
+          ? data.dietType
+          : data.dietType.split(",").map((s: string) => s.trim()).filter(Boolean);
+        setSelectedDiets(diets);
+      }
 
       if (data.ingredients?.length) {
-        // Replace all ingredient fields
         const count = ingredientFields.length;
         for (let i = count - 1; i >= 0; i--) removeIngredient(i);
-        data.ingredients.forEach((ing: string) => appendIngredient({ value: ing }));
+        data.ingredients.forEach((ing) => appendIngredient({ value: `${ing.quantity} ${ing.name}`.trim() }));
       }
-      if (data.steps?.length || data.instructions?.length) {
-        const instructions = data.steps || data.instructions;
+      if (data.steps?.length) {
         const count = stepFields.length;
         for (let i = count - 1; i >= 0; i--) removeStep(i);
-        instructions.forEach((step: string) => appendStep({ value: step }));
+        data.steps.forEach((step: string) => appendStep({ value: step }));
       }
 
       setHasGenerated(true);
@@ -144,20 +141,19 @@ function AddRecipeForm() {
 
     try {
       const payload = {
-        ...data,
+        title: data.title,
+        shortDescription: data.description,
+        fullDescription: data.fullDescription || data.description,
         ingredients: data.ingredients.map((i) => i.value),
         steps: data.steps.map((s) => s.value),
-        dietType: selectedDiets,
+        cuisine: data.cuisine,
+        dietType: selectedDiets.join(", ") || "omnivore",
+        cookTimeMinutes: data.cookTimeMinutes,
+        difficulty: data.difficulty.toLowerCase() as "easy" | "medium" | "hard",
+        imageUrl: data.imageUrl || undefined,
       };
 
-      const res = await fetch(`${API_URL}/api/recipes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error(await res.text());
+      await createRecipe(payload);
       router.push("/recipes/manage");
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to save recipe. Please try again.");
@@ -206,7 +202,7 @@ function AddRecipeForm() {
               onChange={(e) => setAiPrompt(e.target.value)}
               placeholder="e.g. spicy Thai basil chicken with jasmine rice"
               className="flex-1 bg-white/[0.05] border border-white/10 rounded-xl py-3 px-4 text-white placeholder:text-neutral-500 focus:outline-none focus:border-[#E8872B]/50 focus:ring-2 focus:ring-[#E8872B]/20 transition-all"
-              onKeyDown={(e) => e.key === "Enter" && generateRecipe()}
+              onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
             />
             {/* Length Toggle */}
             <div className="flex items-center bg-white/[0.05] rounded-xl p-1 border border-white/10 shrink-0">
@@ -234,7 +230,7 @@ function AddRecipeForm() {
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={generateRecipe}
+              onClick={handleGenerate}
               disabled={isGenerating || !aiPrompt.trim()}
               className="btn-primary px-6 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >

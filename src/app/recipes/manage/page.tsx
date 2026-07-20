@@ -6,24 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { Recipe } from "@/types/recipe";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-
-async function fetchMyRecipes(): Promise<Recipe[]> {
-  const res = await fetch(`${API_URL}/api/recipes/mine`, {
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error("Failed to fetch your recipes");
-  return res.json();
-}
-
-async function deleteRecipe(id: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/recipes/${id}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error("Failed to delete recipe");
-}
+import { getMyRecipes, deleteRecipe as deleteRecipeApi } from "@/lib/api";
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -156,11 +139,11 @@ function ManageRecipesContent() {
     error,
   } = useQuery<Recipe[]>({
     queryKey: ["my-recipes"],
-    queryFn: fetchMyRecipes,
+    queryFn: getMyRecipes,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteRecipe(id),
+    mutationFn: (id: string) => deleteRecipeApi(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-recipes"] });
       setDeleteTarget(null);

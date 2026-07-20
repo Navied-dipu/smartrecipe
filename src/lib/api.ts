@@ -1,37 +1,85 @@
 import { Recipe, PaginatedResponse } from "@/types/recipe";
 
-// Mock data generator
-const generateMockRecipes = (count: number): Recipe[] => {
-  const cuisines = ["Italian", "Mexican", "Indian", "Japanese", "Thai", "Mediterranean", "American"];
-  const dietTypes = ["Vegan", "Vegetarian", "Keto", "Gluten-Free", "Paleo", "None"];
-  const difficulties: ("Easy" | "Medium" | "Hard")[] = ["Easy", "Medium", "Hard"];
+// All /api/* requests are proxied to the Express backend via the Next.js
+// rewrites defined in next.config.mjs. We default to a relative path so the
+// browser stays on the same origin (localhost:3000) and the Better Auth
+// session cookie is shared with the protected endpoints. NEXT_PUBLIC_API_URL
+// can still force an absolute backend URL when needed (e.g. server-side).
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
-  return Array.from({ length: count }).map((_, i) => ({
-    id: `recipe-${i + 1}`,
-    title: `Delicious Recipe ${i + 1}`,
-    description: `A fantastic and easy-to-make dish featuring fresh ingredients. Perfect for a weeknight dinner or a special occasion.`,
-    cookTime: Math.floor(Math.random() * 60) + 15,
-    rating: Number((Math.random() * 2 + 3).toFixed(1)), // 3.0 to 5.0
-    difficulty: difficulties[Math.floor(Math.random() * difficulties.length)],
-    cuisine: cuisines[Math.floor(Math.random() * cuisines.length)],
-    dietType: [dietTypes[Math.floor(Math.random() * dietTypes.length)]],
-    ingredients: [
-      "2 cups of fresh ingredients",
-      "1 tbsp olive oil",
-      "1/2 tsp salt and pepper to taste",
-      "A pinch of culinary magic",
-    ],
-    instructions: [
-      "Prepare all your ingredients by washing and chopping them as needed.",
-      "Heat the olive oil in a large pan over medium heat.",
-      "Add the main ingredients and sauté until perfectly cooked.",
-      "Season with salt, pepper, and serve hot.",
-    ],
-    createdAt: new Date(Date.now() - Math.floor(Math.random() * 10000000000)).toISOString(),
-  }));
-};
+function apiPath(path: string): string {
+  return API_URL ? `${API_URL}${path}` : path;
+}
 
-const mockRecipes = generateMockRecipes(100);
+// ─── Backend → Frontend transformer ────────────────────────────────────────
+// The backend MongoDB model uses different field names and casing than the
+// frontend Recipe interface. This function normalises a single raw backend
+// document into the shape the UI components expect.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function transformRecipe(raw: any): Recipe {
+  const capitalize = (s: string) =>
+    s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+
+  return {
+    id: raw._id ?? raw.id,
+    title: raw.title,
+    description: raw.shortDescription ?? raw.description ?? "",
+    fullDescription: raw.fullDescription,
+    image: raw.image,
+    imageUrl: raw.imageUrl,
+    cookTime: raw.cookTimeMinutes ?? raw.cookTime ?? 0,
+    cookTimeMinutes: raw.cookTimeMinutes,
+    rating: raw.rating ?? 0,
+    difficulty: capitalize(raw.difficulty) as Recipe["difficulty"],
+    cuisine: raw.cuisine ?? "",
+    dietType: Array.isArray(raw.dietType)
+      ? raw.dietType
+      : [raw.dietType].filter(Boolean),
+    ingredients: raw.ingredients ?? [],
+    instructions: raw.steps ?? raw.instructions ?? [],
+    steps: raw.steps,
+    createdAt: raw.createdAt,
+    userId: raw.createdBy ?? raw.userId,
+  };
+}
+
+// ─── Response envelope handling ────────────────────────────────────────────
+// Every backend success response looks like:
+//   { success, message, data, statusCode }
+// but for /recipes/mine the `data` is the array directly, and AI/other
+// endpoints nest extra fields. We unwrap `json.data` when present.
+function unwrap<T>(json: unknown): T {
+  if (json && typeof json === "object" && "data" in (json as object)) {
+    return (json as { data: T }).data;
+  }
+  return json as T;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(apiPath(path), {
+    headers: { Accept: "application/json", ...(init?.headers || {}) },
+    credentials: "include",
+    cache: "no-store",
+    ...init,
+  });
+
+  if (!res.ok) {
+    let message = res.statusText;
+    try {
+      const err = await res.json();
+      message = err.message || message;
+    } catch {
+      /* ignore non-JSON error bodies */
+    }
+    throw new Error(message || `Request failed with status ${res.status}`);
+  }
+
+  const json = await res.json();
+  return unwrap<T>(json);
+}
+
+// ─── Recipes ───────────────────────────────────────────────────────────────
 
 export interface FetchRecipesParams {
   q?: string;
@@ -42,177 +90,183 @@ export interface FetchRecipesParams {
   limit?: number;
 }
 
-export const fetchRecipes = async (params: FetchRecipesParams): Promise<PaginatedResponse<Recipe>> => {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 800));
+export const fetchRecipes = async (
+  params: FetchRecipesParams = {}
+): Promise<PaginatedResponse<Recipe>> => {
+  const query = new URLSearchParams();
+  if (params.q) query.set("q", params.q);
+  if (params.cuisine && params.cuisine !== "All")
+    query.set("cuisine", params.cuisine);
+  if (params.dietType && params.dietType !== "All")
+    query.set("dietType", params.dietType);
+  if (params.sort) query.set("sort", params.sort);
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
 
-  let filtered = [...mockRecipes];
-
-  // Apply search
-  if (params.q) {
-    const query = params.q.toLowerCase();
-    filtered = filtered.filter(
-      (r) => r.title.toLowerCase().includes(query) || r.description.toLowerCase().includes(query)
-    );
-  }
-
-  // Apply filters
-  if (params.cuisine && params.cuisine !== "All") {
-    filtered = filtered.filter((r) => r.cuisine.toLowerCase() === params.cuisine?.toLowerCase());
-  }
-  if (params.dietType && params.dietType !== "All") {
-    filtered = filtered.filter((r) => r.dietType.some((d) => d.toLowerCase() === params.dietType?.toLowerCase()));
-  }
-
-  // Apply sort
-  if (params.sort) {
-    switch (params.sort) {
-      case "newest":
-        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        break;
-      case "highest-rated":
-        filtered.sort((a, b) => b.rating - a.rating);
-        break;
-      case "cook-time":
-        filtered.sort((a, b) => a.cookTime - b.cookTime);
-        break;
-    }
-  }
-
-  // Apply pagination
-  const page = params.page || 1;
-  const limit = params.limit || 12;
-  const total = filtered.length;
-  const totalPages = Math.ceil(total / limit);
-
-  const start = (page - 1) * limit;
-  const paginatedData = filtered.slice(start, start + limit);
+  const qs = query.toString();
+  const payload = await request<{
+    data: unknown[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }>(`/api/recipes${qs ? `?${qs}` : ""}`);
 
   return {
-    data: paginatedData,
-    total,
-    page,
-    limit,
-    totalPages,
+    ...payload,
+    data: (payload.data ?? []).map(transformRecipe),
   };
 };
 
 export const getRecipeById = async (id: string): Promise<Recipe | null> => {
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  const recipe = mockRecipes.find((r) => r.id === id);
-  return recipe || null;
+  try {
+    const raw = await request<unknown>(`/api/recipes/${id}`);
+    return transformRecipe(raw);
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      (err.message.includes("not found") || err.message.includes("404"))
+    ) {
+      return null;
+    }
+    throw err;
+  }
 };
 
 export const getRelatedRecipes = async (id: string): Promise<Recipe[]> => {
-  await new Promise((resolve) => setTimeout(resolve, 600));
-  const recipe = mockRecipes.find((r) => r.id === id);
-  if (!recipe) return [];
-  // Return 4 random recipes from the same cuisine, or just any 4
-  const related = mockRecipes.filter((r) => r.id !== id && r.cuisine === recipe.cuisine);
-  if (related.length < 4) {
-    related.push(...mockRecipes.filter((r) => r.id !== id && !related.includes(r)).slice(0, 4 - related.length));
+  try {
+    const raw = await request<unknown[]>(`/api/recipes/${id}/related`);
+    return Array.isArray(raw) ? raw.map(transformRecipe) : [];
+  } catch {
+    return [];
   }
-  return related.slice(0, 4);
 };
 
-export const logInteraction = async (recipeId: string, action: 'view' | 'save' | 'share'): Promise<void> => {
-  // Simulate network delay and silent exit if not logged in (mock)
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  console.log(`[API Mock] Logged interaction '${action}' for recipe ${recipeId}`);
-};
-
-// ── AI Recommendations ──────────────────────────────────────────────────────
-export interface RecommendedRecipe extends Recipe {
-  /** One-line AI explanation for why this recipe was recommended. */
-  reason: string;
+export interface CreateRecipeInput {
+  title: string;
+  shortDescription: string;
+  fullDescription?: string;
+  ingredients: string[];
+  steps: string[];
+  cuisine: string;
+  dietType: string;
+  cookTimeMinutes: number;
+  difficulty: "easy" | "medium" | "hard";
+  imageUrl?: string;
 }
+
+export const createRecipe = async (
+  input: CreateRecipeInput
+): Promise<Recipe> => {
+  const raw = await request<unknown>("/api/recipes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return transformRecipe(raw);
+};
+
+export const deleteRecipe = async (id: string): Promise<void> => {
+  await request<void>(`/api/recipes/${id}`, { method: "DELETE" });
+};
+
+export const getMyRecipes = async (): Promise<Recipe[]> => {
+  try {
+    const raw = await request<unknown[]>("/api/recipes/mine");
+    return Array.isArray(raw) ? raw.map(transformRecipe) : [];
+  } catch {
+    return [];
+  }
+};
+
+// ─── AI ──────────────────────────────────────────────────────────────────────
 
 export interface RecommendationParams {
   dietType?: string;
   maxCookTime?: number;
 }
 
+export interface RecommendedRecipe extends Recipe {
+  reason: string;
+}
+
 export interface RecommendationResponse {
   recipes: RecommendedRecipe[];
-  /** True when the user has no interaction history yet (cold start). */
   hasInteractions: boolean;
 }
 
-const reasonTemplates = [
-  (r: Recipe) => `Because you've saved several ${r.cuisine} dishes recently`,
-  (r: Recipe) => `Matches your love for quick ${r.cookTime}-minute meals`,
-  () => `Similar to recipes you rated highly`,
-  (r: Recipe) => `A ${r.difficulty.toLowerCase()} pick that fits your cooking style`,
-  (r: Recipe) => `Popular with cooks who share your taste in ${r.cuisine} food`,
-  (r: Recipe) => `Fits your ${r.dietType[0]} preferences from past saves`,
-];
-
-/**
- * GET /api/ai/recommendations
- * Falls back to locally generated mock recommendations when the endpoint
- * is unavailable (e.g. during frontend-only development).
- */
 export const getRecommendations = async (
   params: RecommendationParams = {}
 ): Promise<RecommendationResponse> => {
   const query = new URLSearchParams();
-  if (params.dietType && params.dietType !== "All") query.set("dietType", params.dietType);
+  if (params.dietType && params.dietType !== "All")
+    query.set("dietType", params.dietType);
   if (params.maxCookTime) query.set("maxCookTime", String(params.maxCookTime));
+
   const qs = query.toString();
+  const payload = await request<{
+    recipes: unknown[];
+    hasInteractions: boolean;
+  }>(`/api/ai/recommendations${qs ? `?${qs}` : ""}`);
 
+  return {
+    ...payload,
+    recipes: (payload.recipes ?? []).map((r: any) => ({
+      ...transformRecipe(r),
+      reason: r.reason ?? "",
+    })),
+  };
+};
+
+// Shape returned by POST /api/ai/generate-recipe
+export interface GeneratedRecipeDraft {
+  title: string;
+  shortDescription: string;
+  fullDescription: string;
+  ingredients: { name: string; quantity: string }[];
+  steps: string[];
+  cuisine: string;
+  dietType: string;
+  cookTimeMinutes: number;
+  difficulty: "easy" | "medium" | "hard";
+}
+
+export const generateRecipe = async (
+  prompt: string,
+  length: "short" | "detailed"
+): Promise<GeneratedRecipeDraft> => {
+  return request<GeneratedRecipeDraft>("/api/ai/generate-recipe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, length }),
+  });
+};
+
+// ─── Interactions ────────────────────────────────────────────────────────────
+
+export const postInteraction = async (
+  recipeId: string,
+  action: "view" | "save" | "cook"
+): Promise<void> => {
   try {
-    const res = await fetch(`/api/ai/recommendations${qs ? `?${qs}` : ""}`, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      credentials: "include",
+    await request<void>("/api/interactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recipeId, action }),
     });
-    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-    return (await res.json()) as RecommendationResponse;
-  } catch {
-    // ── Mock fallback ──────────────────────────────────────────────────────
-    await new Promise((resolve) => setTimeout(resolve, 900));
-
-    let pool = [...mockRecipes];
-    if (params.dietType && params.dietType !== "All") {
-      pool = pool.filter((r) =>
-        r.dietType.some((d) => d.toLowerCase() === params.dietType?.toLowerCase())
-      );
-    }
-    if (params.maxCookTime) {
-      pool = pool.filter((r) => r.cookTime <= params.maxCookTime!);
-    }
-
-    const recipes: RecommendedRecipe[] = pool
-      .sort((a, b) => b.rating - a.rating)
-      .slice(0, 8)
-      .map((r, i) => ({
-        ...r,
-        reason: reasonTemplates[i % reasonTemplates.length](r),
-      }));
-
-    return { recipes, hasInteractions: true };
+  } catch (err) {
+    console.error("[API Error] Failed to post interaction", err);
   }
 };
 
-/**
- * POST /api/interactions
- * Records a user interaction (e.g. saving a recipe). Fails silently on the
- * mock fallback so navigation is never blocked.
- */
-export const postInteraction = async (
-  recipeId: string,
-  action: "view" | "save" | "share"
-): Promise<void> => {
-  try {
-    const res = await fetch("/api/interactions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ recipeId, action }),
-    });
-    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  } catch {
-    // Mock fallback — do not block navigation on failure
-    console.log(`[API Mock] POST /api/interactions { recipeId: ${recipeId}, action: ${action} }`);
-  }
+// ─── Health ─────────────────────────────────────────────────────────────────
+
+export const getHealth = async (): Promise<{
+  status: string;
+  services: { database: { status: string; healthy: boolean } };
+}> => {
+  return request<{
+    status: string;
+    services: { database: { status: string; healthy: boolean } };
+  }>("/api/health");
 };

@@ -21,7 +21,7 @@ const publicLinks: NavLink[] = [
 
 const authLinks: NavLink[] = [
   { label: "Dashboard", href: "/dashboard" },
-  { label: "Add Recipe", href: "/recipes/new" },
+  { label: "Add Recipe", href: "/recipes/add" },
   { label: "Manage Recipes", href: "/recipes/manage" },
 ];
 

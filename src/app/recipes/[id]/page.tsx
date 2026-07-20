@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getRecipeById, getRelatedRecipes, logInteraction } from "@/lib/api";
+import { getRecipeById, getRelatedRecipes, postInteraction } from "@/lib/api";
 import RecipeCard from "@/components/recipes/RecipeCard";
 import SkeletonCard from "@/components/recipes/SkeletonCard";
 
@@ -27,7 +27,7 @@ export default function RecipeDetailPage() {
   // Log view interaction on mount
   useEffect(() => {
     if (recipe) {
-      logInteraction(recipe.id, "view").catch(console.error);
+      postInteraction(recipe.id, "view").catch(console.error);
     }
   }, [recipe]);
 
